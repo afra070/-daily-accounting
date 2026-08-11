@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Accounting — দৈনিক হিসাব</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Bengali:wght@500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --paper:#F4EEDC;
+    --card:#FFFDF6;
+    --ink:#2B241A;
+    --ink-soft:#6B6152;
+    --ledger-green:#1F3D2E;
+    --ledger-green-dark:#152C21;
+    --brass:#B8934A;
+    --brass-light:#D9BC7E;
+    --income:#2F6E4F;
+    --income-bg:#E1EEE3;
+    --expense:#A8402F;
+    --expense-bg:#F6E3DE;
+    --rule:#C9BE9E;
+    --shadow: rgba(43,36,26,0.18);
+    --chip:#EFE7CE;
+  }
+  [data-theme="dark"]{
+    --paper:#181510;
+    --card:#211D16;
+    --ink:#F1EAD8;
+    --ink-soft:#B4A98D;
+    --ledger-green:#2E5842;
+    --ledger-green-dark:#1B3527;
+    --brass:#D9BC7E;
+    --brass-light:#EAD6A6;
+    --income:#7CC79E;
+    --income-bg:#20362A;
+    --expense:#E38B78;
+    --expense-bg:#3B241E;
+    --rule:#443E30;
+    --shadow: rgba(0,0,0,0.4);
+    --chip:#2C271C;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;}
+  #app{
+    font-family:'Noto Sans Bengali', sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    min-height:100vh;
+    padding:0 0 3rem;
+    transition:background 0.2s, color 0.2s;
+  }
+  .cover{
+    background:linear-gradient(180deg, var(--ledger-green) 0%, var(--ledger-green-dark) 100%);
+    color:#F4EEDC;
+    padding:1.8rem 1.5rem 2rem;
+    text-align:center;
+    position:relative;
+    border-bottom:6px solid var(--brass);
+  }
+  .theme-btn{
+    position:absolute;
+    top:14px; right:14px;
+    background:rgba(255,255,255,0.12);
+    border:1px solid rgba(255,255,255,0.3);
+    color:#F4EEDC;
+    border-radius:20px;
+    padding:0.35rem 0.8rem;
+    font-size:0.78rem;
+    cursor:pointer;
+    font-family:'Noto Sans Bengali', sans-serif;
+  }
+  .cover h1{
+    font-family:'Noto Serif Bengali', serif;
+    font-weight:700;
+    font-size:1.85rem;
+    margin:0 0 0.25rem;
+  }
+  .cover .eng-sub{
+    font-family:'Noto Serif Bengali', serif;
+    font-size:0.78rem;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    color:var(--brass-light);
+    margin:0 0 0.5rem;
+  }
+  .cover .tagline{
+    font-size:0.9rem;
+    color:#D9D2BE;
+    margin:0;
+  }
+  .wrap{ max-width:720px; margin:0 auto; padding:0 1.1rem; }
+
+  /* Account chips */
+  .account-row{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding:1rem 0 0;
+    -ms-overflow-style:none;
+    scrollbar-width:none;
+  }
+  .account-row::-webkit-scrollbar{display:none;}
+  .acc-chip{
+    flex-shrink:0;
+    padding:0.4rem 0.85rem;
+    border-radius:20px;
+    border:1px solid var(--rule);
+    background:var(--card);
+    font-size:0.82rem;
+    cursor:pointer;
+    color:var(--ink-soft);
+    white-space:nowrap;
+  }
+  .acc-chip.active{
+    background:var(--ledger-green);
+    color:#F4EEDC;
+    border-color:var(--ledger-green);
+  }
+
+  /* Month nav */
+  .month-nav{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-top:0.9rem;
+  }
+  .month-nav button{
+    background:var(--card);
+    border:1px solid var(--rule);
+    color:var(--ink);
+    border-radius:8px;
+    width:34px; height:34px;
+    font-size:1rem;
+    cursor:pointer;
+  }
+  .month-nav .month-label{
+    font-family:'Noto Serif Bengali', serif;
+    font-weight:600;
+    font-size:1.05rem;
+  }
+
+  .balance-row{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:10px;
+    margin-top:0.8rem;
+  }
+  .balance-card{
+    background:var(--card);
+    border:1px solid var(--rule);
+    border-radius:10px;
+    padding:0.8rem 0.5rem;
+    text-align:center;
+    box-shadow:0 3px 8px var(--shadow);
+  }
+  .balance-card .label{ font-size:0.7rem; color:var(--ink-soft); margin-bottom:4px; }
+  .balance-card .value{ font-family:'Noto Serif Bengali', serif; font-weight:700; font-size:1.05rem; }
+  .balance-card.income .value{color:var(--income);}
+  .balance-card.expense .value{color:var(--expense);}
+  .balance-card.net .value{color:var(--ledger-green); }
+  [data-theme="dark"] .balance-card.net .value{color:var(--brass-light);}
+
+  .section{
+    margin-top:1.5rem;
+    background:var(--card);
+    border:1px solid var(--rule);
+    border-radius:12px;
+    padding:1.1rem 1.1rem 1.2rem;
+    box-shadow:0 2px 6px var(--shadow);
+  }
+  .section h2{
+    font-family:'Noto Serif Bengali', serif;
+    font-size:1.02rem;
+    font-weight:600;
+    margin:0 0 0.9rem;
+    color:var(--ledger-green);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  [data-theme="dark"] .section h2{ color:var(--brass-light); }
+  .section h2 .link-btn{
+    font-size:0.78rem;
+    color:var(--brass);
+    cursor:pointer;
+    font-weight:500;
+    font-family:'Noto Sans Bengali', sans-serif;
+  }
+
+  .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:0.7rem; }
+  .form-grid .full{grid-column:1/-1;}
+  label{ display:block; font-size:0.76rem; color:var(--ink-soft); margin-bottom:4px; }
+  input[type=text], input[type=date], input[type=number], select{
+    width:100%;
+    font-family:'Noto Sans Bengali', sans-serif;
+    font-size:0.93rem;
+    padding:0.5rem 0.6rem;
+    border:1px solid var(--rule);
+    border-radius:7px;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  input:focus, select:focus{
+    outline:none;
+    border-color:var(--brass);
+    box-shadow:0 0 0 3px rgba(184,147,74,0.2);
+  }
+  .type-toggle{ display:flex; gap:8px; grid-column:1/-1; }
+  .type-btn{
+    flex:1; text-align:center; padding:0.5rem;
+    border-radius:7px; border:1px solid var(--rule);
+    background:var(--paper); font-size:0.88rem; cursor:pointer;
+    color:var(--ink-soft); font-weight:600;
+  }
+  .type-btn.active.income{background:var(--income-bg); border-color:var(--income); color:var(--income);}
+  .type-btn.active.expense{background:var(--expense-bg); border-color:var(--expense); color:var(--expense);}
+
+  .add-btn{
+    margin-top:0.9rem; width:100%; padding:0.68rem; border:none;
+    border-radius:8px; background:var(--ledger-green); color:#F4EEDC;
+    font-family:'Noto Serif Bengali', serif; font-weight:600; font-size:0.98rem; cursor:pointer;
+  }
+  .add-btn:disabled{opacity:0.5;}
+
+  /* budgets */
+  .budget-row{ margin-bottom:0.7rem; }
+  .budget-row .top{ display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:4px; }
+  .budget-row .bar-bg{ background:var(--paper); border-radius:6px; height:8px; overflow:hidden; border:1px solid var(--rule); }
+  .budget-row .bar-fill{ height:100%; background:var(--income); }
+  .budget-row .bar-fill.over{ background:var(--expense); }
+  .budget-input-row{ display:flex; align-items:center; gap:8px; margin-bottom:0.55rem; }
+  .budget-input-row label{ flex:1; margin:0; font-size:0.85rem; color:var(--ink); }
+  .budget-input-row input{ width:120px; }
+  .empty-budget-msg{ color:var(--ink-soft); font-size:0.85rem; }
+
+  canvas{ max-width:100%; }
+  .chart-wrap{ position:relative; height:220px; margin-top:0.4rem; }
+
+  /* filter */
+  .filter-row{ display:flex; gap:8px; margin-bottom:0.8rem; flex-wrap:wrap; }
+  .filter-row select, .filter-row input{ flex:1; min-width:110px; }
+
+  .day-group{ margin-bottom:1.2rem; }
+  .day-header{
+    display:flex; justify-content:space-between; align-items:baseline;
+    padding:0 2px 6px; border-bottom:1px dashed var(--rule); margin-bottom:6px;
+  }
+  .day-header .date-label{ font-weight:600; font-size:0.86rem; }
+  .day-header .day-net{ font-size:0.78rem; color:var(--ink-soft); }
+  .entry-row{ display:flex; align-items:center; gap:9px; padding:0.5rem 2px; border-bottom:1px solid var(--rule); }
+  .entry-row:last-child{border-bottom:none;}
+  .entry-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .entry-dot.income{background:var(--income);}
+  .entry-dot.expense{background:var(--expense);}
+  .entry-main{ flex:1; min-width:0; }
+  .entry-desc{ font-size:0.9rem; display:block; }
+  .entry-meta{ font-size:0.72rem; color:var(--ink-soft); }
+  .cat-chip{
+    display:inline-block; background:var(--chip); color:var(--ink-soft);
+    border-radius:5px; padding:1px 6px; font-size:0.7rem; margin-right:4px;
+  }
+  .entry-amount{ font-family:'Noto Serif Bengali', serif; font-weight:600; font-size:0.92rem; white-space:nowrap; }
+  .entry-amount.income{color:var(--income);}
+  .entry-amount.expense{color:var(--expense);}
+  .del-btn{ background:none; border:none; color:var(--ink-soft); font-size:1.05rem; cursor:pointer; padding:2px 4px; flex-shrink:0; }
+  .del-btn:hover{color:var(--expense);}
+
+  .empty-state{ text-align:center; padding:2rem 1rem; color:var(--ink-soft); border:1px dashed var(--rule); border-radius:12px; }
+  .empty-state .big{ font-family:'Noto Serif Bengali', serif; font-size:0.98rem; color:var(--ink); margin-bottom:4px; }
+  .loading{ text-align:center; padding:2rem; color:var(--ink-soft); font-size:0.88rem; }
+
+  .export-btn{
+    width:100%; padding:0.6rem; border-radius:8px; border:1px solid var(--rule);
+    background:var(--paper); color:var(--ink); font-size:0.88rem; cursor:pointer; margin-top:0.5rem;
+  }
+  @media(max-width:420px){ .cover h1{font-size:1.5rem;} .balance-card .value{font-size:0.92rem;} }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="cover">
+    <button class="theme-btn" id="themeBtn">🌙 ডার্ক মোড</button>
+    <p class="eng-sub">Daily Accounting</p>
+    <h1>দৈনিক হিসাবের খাতা</h1>
+    <p class="tagline">আয়-ব্যয়, বাজেট ও হিসাব — সব একসাথে</p>
+  </div>
+
+  <div class="wrap">
+    <div class="account-row" id="accountRow"></div>
+
+    <div class="month-nav">
+      <button id="prevMonth">‹</button>
+      <span class="month-label" id="monthLabel"></span>
+      <button id="nextMonth">›</button>
+    </div>
+
+    <div class="balance-row">
+      <div class="balance-card income"><div class="label">আয়</div><div class="value" id="totalIncome">৳ ০</div></div>
+      <div class="balance-card expense"><div class="label">ব্যয়</div><div class="value" id="totalExpense">৳ ০</div></div>
+      <div class="balance-card net"><div class="label">জমা</div><div class="value" id="netBalance">৳ ০</div></div>
+    </div>
+
+    <div class="section">
+      <h2>নতুন হিসাব যোগ করুন</h2>
+      <div class="form-grid">
+        <div class="type-toggle">
+          <div class="type-btn income active" id="btnIncome">আয়</div>
+          <div class="type-btn expense" id="btnExpense">ব্যয়</div>
+        </div>
+        <div class="full">
+          <label for="descInput">বিবরণ</label>
+          <input type="text" id="descInput" placeholder="যেমনঃ বাজার খরচ, বেতন">
+        </div>
+        <div>
+          <label for="catSelect">ক্যাটাগরি</label>
+          <select id="catSelect"></select>
+        </div>
+        <div>
+          <label for="accSelect">অ্যাকাউন্ট</label>
+          <select id="accSelect"></select>
+        </div>
+        <div>
+          <label for="amountInput">টাকার পরিমাণ (৳)</label>
+          <input type="number" id="amountInput" min="0" step="0.01" placeholder="০">
+        </div>
+        <div>
+          <label for="dateInput">তারিখ</label>
+          <input type="date" id="dateInput">
+        </div>
+      </div>
+      <button class="add-btn" id="addBtn">যোগ করুন</button>
+    </div>
+
+    <div class="section" id="budgetSection">
+      <h2>মাসিক বাজেট <span class="link-btn" id="toggleBudgetEdit">বাজেট সেট করুন</span></h2>
+      <div id="budgetView"></div>
+      <div id="budgetEdit" style="display:none; margin-top:0.5rem;"></div>
+    </div>
+
+    <div class="section">
+      <h2>চার্ট</h2>
+      <div class="chart-wrap"><canvas id="pieChart"></canvas></div>
+      <div class="chart-wrap" style="margin-top:1.2rem;"><canvas id="barChart"></canvas></div>
+    </div>
+
+    <div class="section">
+      <h2>হিসাবের তালিকা</h2>
+      <div class="filter-row">
+        <input type="text" id="searchInput" placeholder="খুঁজুন...">
+        <select id="filterCat"><option value="">সব ক্যাটাগরি</option></select>
+      </div>
+      <div id="listArea"><div class="loading">লোড হচ্ছে…</div></div>
+      <button class="export-btn" id="exportBtn">CSV হিসেবে ডাউনলোড করুন</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var ENTRIES_KEY = 'daily-accounting-entries';
+  var SETTINGS_KEY = 'daily-accounting-settings';
+
+  var ACCOUNTS = [
+    {id:'cash', label:'হাতে নগদ'},
+    {id:'bank', label:'ব্যাংক'},
+    {id:'bkash', label:'বিকাশ'},
+    {id:'nagad', label:'নগদ'},
+    {id:'rocket', label:'রকেট'}
+  ];
+  var INCOME_CATS = ['বেতন','ব্যবসা','উপহার','বিনিয়োগ আয়','অন্যান্য আয়'];
+  var EXPENSE_CATS = ['খাবার','যাতায়াত','বাসাভাড়া','বিল/ইউটিলিটি','চিকিৎসা','শিক্ষা','কেনাকাটা','বিনোদন','মুদি','অন্যান্য ব্যয়'];
+  var CHART_COLORS = ['#B8934A','#2F6E4F','#A8402F','#4C6E8C','#7A5C8C','#8C6B4C','#5C8C7A','#8C4C6B','#6B8C4C','#4C4C8C'];
+
+  var entries = [];
+  var settings = { theme:'light', accountFilter:'all', budgets:{} };
+  var currentType = 'income';
+  var viewDate = new Date();
+  var pieChartObj = null, barChartObj = null;
+
+  var descInput = document.getElementById('descInput');
+  var amountInput = document.getElementById('amountInput');
+  var dateInput = document.getElementById('dateInput');
+  var catSelect = document.getElementById('catSelect');
+  var accSelect = document.getElementById('accSelect');
+  var addBtn = document.getElementById('addBtn');
+  var btnIncome = document.getElementById('btnIncome');
+  var btnExpense = document.getElementById('btnExpense');
+  var listArea = document.getElementById('listArea');
+  var accountRow = document.getElementById('accountRow');
+  var monthLabel = document.getElementById('monthLabel');
+  var searchInput = document.getElementById('searchInput');
+  var filterCat = document.getElementById('filterCat');
+  var themeBtn = document.getElementById('themeBtn');
+
+  function todayStr(){
+    var d = new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  dateInput.value = todayStr();
+
+  function formatTaka(n){
+    var rounded = Math.round(n * 100) / 100;
+    var sign = rounded < 0 ? '-' : '';
+    return sign + '৳ ' + Math.abs(rounded).toLocaleString('en-US');
+  }
+  function monthKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+  function monthNameBn(d){
+    var months = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+    return months[d.getMonth()] + ' ' + d.getFullYear();
+  }
+  function formatDateLabel(dateStr){
+    try{
+      var p = dateStr.split('-');
+      var d = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+      var months = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+      return d.getDate() + ' ' + months[d.getMonth()];
+    }catch(e){ return dateStr; }
+  }
+  function escapeHtml(str){
+    var div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+  function accountLabel(id){
+    for(var i=0;i<ACCOUNTS.length;i++) if(ACCOUNTS[i].id===id) return ACCOUNTS[i].label;
+    return id;
+  }
+
+  /* ---------- accounts row ---------- */
+  function renderAccountRow(){
+    var html = '<div class="acc-chip'+(settings.accountFilter==='all'?' active':'')+'" data-acc="all">সব</div>';
+    ACCOUNTS.forEach(function(a){
+      html += '<div class="acc-chip'+(settings.accountFilter===a.id?' active':'')+'" data-acc="'+a.id+'">'+a.label+'</div>';
+    });
+    accountRow.innerHTML = html;
+    accountRow.querySelectorAll('.acc-chip').forEach(function(chip){
+      chip.addEventListener('click', function(){
+        settings.accountFilter = chip.getAttribute('data-acc');
+        saveSettings();
+        renderAccountRow();
+        renderAll();
+      });
+    });
+  }
+
+  /* ---------- category/account selects ---------- */
+  function renderCategorySelect(){
+    var cats = currentType === 'income' ? INCOME_CATS : EXPENSE_CATS;
+    catSelect.innerHTML = cats.map(function(c){ return '<option value="'+c+'">'+c+'</option>'; }).join('');
+  }
+  function renderAccountSelect(){
+    accSelect.innerHTML = ACCOUNTS.map(function(a){ return '<option value="'+a.id+'">'+a.label+'</option>'; }).join('');
+  }
+  function renderFilterCatOptions(){
+    var all = INCOME_CATS.concat(EXPENSE_CATS);
+    filterCat.innerHTML = '<option value="">সব ক্যাটাগরি</option>' + all.map(function(c){ return '<option value="'+c+'">'+c+'</option>'; }).join('');
+  }
+
+  btnIncome.addEventListener('click', function(){
+    currentType = 'income';
+    btnIncome.classList.add('active'); btnExpense.classList.remove('active');
+    renderCategorySelect();
+  });
+  btnExpense.addEventListener('click', function(){
+    currentType = 'expense';
+    btnExpense.classList.add('active'); btnIncome.classList.remove('active');
+    renderCategorySelect();
+  });
+
+  /* ---------- storage ---------- */
+  async function loadAll(){
+    try{
+      var er = localStorage.getItem(ENTRIES_KEY);
+      entries = er ? JSON.parse(er) : [];
+    }catch(e){ entries = []; }
+    try{
+      var sr = localStorage.getItem(SETTINGS_KEY);
+      if(sr) settings = Object.assign(settings, JSON.parse(sr));
+    }catch(e){}
+    applyTheme();
+    renderAccountRow();
+    renderAll();
+  }
+  async function saveEntries(){
+    try{ localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries)); }
+    catch(e){ console.error('সংরক্ষণ ব্যর্থ', e); }
+  }
+  async function saveSettings(){
+    try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
+    catch(e){ console.error('সংরক্ষণ ব্যর্থ', e); }
+  }
+
+  /* ---------- theme ---------- */
+  function applyTheme(){
+    document.documentElement.setAttribute('data-theme', settings.theme);
+    themeBtn.textContent = settings.theme === 'dark' ? '☀️ লাইট মোড' : '🌙 ডার্ক মোড';
+  }
+  themeBtn.addEventListener('click', function(){
+    settings.theme = settings.theme === 'dark' ? 'light' : 'dark';
+    applyTheme();
+    saveSettings();
+    renderAll();
+  });
+
+  /* ---------- month nav ---------- */
+  document.getElementById('prevMonth').addEventListener('click', function(){
+    viewDate.setMonth(viewDate.getMonth()-1); renderAll();
+  });
+  document.getElementById('nextMonth').addEventListener('click', function(){
+    viewDate.setMonth(viewDate.getMonth()+1); renderAll();
+  });
+
+  /* ---------- filtered entries for current month/account ---------- */
+  function monthEntries(){
+    var mk = monthKey(viewDate);
+    return entries.filter(function(e){
+      var em = e.date.slice(0,7);
+      if(em !== mk) return false;
+      if(settings.accountFilter !== 'all' && e.account !== settings.accountFilter) return false;
+      return true;
+    });
+  }
+
+  /* ---------- main render ---------- */
+  function renderAll(){
+    monthLabel.textContent = monthNameBn(viewDate);
+    var me = monthEntries();
+    var totalIncome = 0, totalExpense = 0;
+    me.forEach(function(e){ if(e.type==='income') totalIncome += e.amount; else totalExpense += e.amount; });
+    document.getElementById('totalIncome').textContent = formatTaka(totalIncome);
+    document.getElementById('totalExpense').textContent = formatTaka(totalExpense);
+    document.getElementById('netBalance').textContent = formatTaka(totalIncome - totalExpense);
+
+    renderBudgets(me);
+    renderCharts(me);
+    renderList();
+  }
+
+  /* ---------- budgets ---------- */
+  function renderBudgets(me){
+    var view = document.getElementById('budgetView');
+    var spendByCat = {};
+    me.forEach(function(e){ if(e.type==='expense') spendByCat[e.category] = (spendByCat[e.category]||0) + e.amount; });
+    var budgetCats = Object.keys(settings.budgets).filter(function(c){ return settings.budgets[c] > 0; });
+    if(budgetCats.length === 0){
+      view.innerHTML = '<div class="empty-budget-msg">কোনো বাজেট সেট করা নেই। "বাজেট সেট করুন" চাপুন।</div>';
+    } else {
+      var html = '';
+      budgetCats.forEach(function(c){
+        var limit = settings.budgets[c];
+        var spent = spendByCat[c] || 0;
+        var pct = Math.min(100, Math.round((spent/limit)*100));
+        var over = spent > limit;
+        html += '<div class="budget-row">';
+        html += '<div class="top"><span>'+c+'</span><span>'+formatTaka(spent)+' / '+formatTaka(limit)+'</span></div>';
+        html += '<div class="bar-bg"><div class="bar-fill'+(over?' over':'')+'" style="width:'+pct+'%"></div></div>';
+        html += '</div>';
+      });
+      view.innerHTML = html;
+    }
+
+    var edit = document.getElementById('budgetEdit');
+    var html2 = EXPENSE_CATS.map(function(c){
+      var val = settings.budgets[c] || '';
+      return '<div class="budget-input-row"><label>'+c+'</label><input type="number" min="0" step="1" data-cat="'+c+'" class="budget-input" value="'+val+'" placeholder="০"></div>';
+    }).join('');
+    html2 += '<button class="add-btn" id="saveBudgetsBtn">বাজেট সংরক্ষণ করুন</button>';
+    edit.innerHTML = html2;
+    document.getElementById('saveBudgetsBtn').addEventListener('click', function(){
+      edit.querySelectorAll('.budget-input').forEach(function(inp){
+        var v = parseFloat(inp.value);
+        settings.budgets[inp.getAttribute('data-cat')] = isNaN(v) ? 0 : v;
+      });
+      saveSettings();
+      edit.style.display = 'none';
+      renderAll();
+    });
+  }
+  document.getElementById('toggleBudgetEdit').addEventListener('click', function(){
+    var edit = document.getElementById('budgetEdit');
+    edit.style.display = edit.style.display === 'none' ? 'block' : 'none';
+  });
+
+  /* ---------- charts ---------- */
+  function renderCharts(me){
+    var isDark = settings.theme === 'dark';
+    var textColor = isDark ? '#F1EAD8' : '#2B241A';
+
+    var spendByCat = {};
+    me.forEach(function(e){ if(e.type==='expense') spendByCat[e.category] = (spendByCat[e.category]||0) + e.amount; });
+    var catLabels = Object.keys(spendByCat);
+    var catData = catLabels.map(function(c){ return spendByCat[c]; });
+
+    var pieCtx = document.getElementById('pieChart').getContext('2d');
+    if(pieChartObj) pieChartObj.destroy();
+    if(catLabels.length === 0){
+      pieCtx.clearRect(0,0,pieCtx.canvas.width,pieCtx.canvas.height);
+    } else {
+      pieChartObj = new Chart(pieCtx, {
+        type:'doughnut',
+        data:{ labels:catLabels, datasets:[{ data:catData, backgroundColor:CHART_COLORS }] },
+        options:{
+          plugins:{ legend:{ position:'bottom', labels:{ color:textColor, font:{ family:"'Noto Sans Bengali'", size:11 } } } },
+          maintainAspectRatio:false
+        }
+      });
+    }
+
+    var byDay = {};
+    me.forEach(function(e){
+      var d = e.date.slice(8,10);
+      if(!byDay[d]) byDay[d] = {income:0, expense:0};
+      byDay[d][e.type] += e.amount;
+    });
+    var days = Object.keys(byDay).sort();
+    var incomeArr = days.map(function(d){ return byDay[d].income; });
+    var expenseArr = days.map(function(d){ return byDay[d].expense; });
+
+    var barCtx = document.getElementById('barChart').getContext('2d');
+    if(barChartObj) barChartObj.destroy();
+    if(days.length === 0){
+      barCtx.clearRect(0,0,barCtx.canvas.width,barCtx.canvas.height);
+    } else {
+      barChartObj = new Chart(barCtx, {
+        type:'bar',
+        data:{
+          labels:days,
+          datasets:[
+            { label:'আয়', data:incomeArr, backgroundColor:'#2F6E4F' },
+            { label:'ব্যয়', data:expenseArr, backgroundColor:'#A8402F' }
+          ]
+        },
+        options:{
+          maintainAspectRatio:false,
+          plugins:{ legend:{ labels:{ color:textColor, font:{ family:"'Noto Sans Bengali'", size:11 } } } },
+          scales:{
+            x:{ ticks:{ color:textColor, font:{size:10} }, grid:{ display:false } },
+            y:{ ticks:{ color:textColor, font:{size:10} }, grid:{ color: isDark?'#443E30':'#E5DCC0' } }
+          }
+        }
+      });
+    }
+  }
+
+  /* ---------- list ---------- */
+  function renderList(){
+    var me = monthEntries();
+    var q = searchInput.value.trim().toLowerCase();
+    var catF = filterCat.value;
+    var filtered = me.filter(function(e){
+      if(catF && e.category !== catF) return false;
+      if(q && e.desc.toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+
+    if(filtered.length === 0){
+      listArea.innerHTML = '<div class="empty-state"><div class="big">এই মাসে কোনো হিসাব নেই</div>উপরের ফর্ম থেকে যোগ করুন</div>';
+      return;
+    }
+
+    var byDate = {};
+    filtered.forEach(function(e){ if(!byDate[e.date]) byDate[e.date]=[]; byDate[e.date].push(e); });
+    var dates = Object.keys(byDate).sort(function(a,b){ return b.localeCompare(a); });
+
+    var html = '';
+    dates.forEach(function(date){
+      var dayEntries = byDate[date].slice().sort(function(a,b){ return b.id - a.id; });
+      var dayNet = 0;
+      dayEntries.forEach(function(e){ dayNet += (e.type==='income'?e.amount:-e.amount); });
+      html += '<div class="day-group">';
+      html += '<div class="day-header"><span class="date-label">'+formatDateLabel(date)+'</span><span class="day-net">'+(dayNet>=0?'+':'')+formatTaka(dayNet)+'</span></div>';
+      dayEntries.forEach(function(e){
+        html += '<div class="entry-row">';
+        html += '<span class="entry-dot '+e.type+'"></span>';
+        html += '<span class="entry-main"><span class="entry-desc">'+escapeHtml(e.desc)+'</span>';
+        html += '<span class="entry-meta"><span class="cat-chip">'+e.category+'</span>'+accountLabel(e.account)+'</span></span>';
+        html += '<span class="entry-amount '+e.type+'">'+(e.type==='income'?'+':'−')+formatTaka(e.amount).replace('৳ ','৳ ')+'</span>';
+        html += '<button class="del-btn" data-id="'+e.id+'" aria-label="মুছুন">✕</button>';
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+    listArea.innerHTML = html;
+
+    listArea.querySelectorAll('.del-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var id = parseFloat(btn.getAttribute('data-id'));
+        entries = entries.filter(function(e){ return e.id !== id; });
+        saveEntries();
+        renderAll();
+      });
+    });
+  }
+  searchInput.addEventListener('input', renderList);
+  filterCat.addEventListener('change', renderList);
+
+  /* ---------- add entry ---------- */
+  addBtn.addEventListener('click', async function(){
+    var desc = descInput.value.trim();
+    var amount = parseFloat(amountInput.value);
+    var date = dateInput.value || todayStr();
+    var category = catSelect.value;
+    var account = accSelect.value;
+
+    if(!desc){ descInput.focus(); return; }
+    if(isNaN(amount) || amount <= 0){ amountInput.focus(); return; }
+
+    addBtn.disabled = true;
+    entries.push({ id:Date.now(), desc:desc, amount:amount, date:date, type:currentType, category:category, account:account });
+    await saveEntries();
+
+    var entryMonth = date.slice(0,7);
+    if(entryMonth !== monthKey(viewDate)){
+      var p = date.split('-');
+      viewDate = new Date(parseInt(p[0]), parseInt(p[1])-1, 1);
+    }
+    renderAll();
+
+    descInput.value = '';
+    amountInput.value = '';
+    descInput.focus();
+    addBtn.disabled = false;
+  });
+  descInput.addEventListener('keydown', function(e){ if(e.key==='Enter') addBtn.click(); });
+  amountInput.addEventListener('keydown', function(e){ if(e.key==='Enter') addBtn.click(); });
+
+  /* ---------- CSV export ---------- */
+  document.getElementById('exportBtn').addEventListener('click', function(){
+    if(entries.length === 0) return;
+    var rows = [['তারিখ','ধরন','ক্যাটাগরি','অ্যাকাউন্ট','বিবরণ','পরিমাণ']];
+    entries.slice().sort(function(a,b){ return a.date.localeCompare(b.date); }).forEach(function(e){
+      rows.push([e.date, e.type==='income'?'আয়':'ব্যয়', e.category, accountLabel(e.account), e.desc, e.amount]);
+    });
+    var csv = rows.map(function(r){
+      return r.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(',');
+    }).join('\n');
+    var blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'daily-accounting-'+todayStr()+'.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  /* ---------- init ---------- */
+  renderCategorySelect();
+  renderAccountSelect();
+  renderFilterCatOptions();
+  loadAll();
+})();
+</script>
+</body>
+</html>
